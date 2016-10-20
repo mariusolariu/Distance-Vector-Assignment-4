@@ -153,8 +153,30 @@ public class RouterNode {
 		// reinitialize the dv of current Node;
 		distanceVectors.put(myID, infinitValuesArray);
 		
+		printCurrentDistanceVectors();
+		
 		// update node's distance vector
 		updateNodeSDistanceVector();
+		
+	}
+	
+	/**
+	 * 
+	 */
+	private void printCurrentDistanceVectors() {
+		Integer[] currentDistanceVector;
+		
+		System.out.println("Node " + myID + " distance vectors hm:");
+		
+		for ( int i = 0; i < sim.NUM_NODES; i++ ) {
+			System.out.print(i + " :");
+			
+			currentDistanceVector = distanceVectors.get(i);
+			
+			for ( Integer j : currentDistanceVector ) {
+				System.out.println(j + " ");
+			}
+		}
 		
 	}
 	
