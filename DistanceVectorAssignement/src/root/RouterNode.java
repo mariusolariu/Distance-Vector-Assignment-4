@@ -174,9 +174,13 @@ public class RouterNode {
 			currentDistanceVector = distanceVectors.get(i);
 			
 			for ( Integer j : currentDistanceVector ) {
-				System.out.println(j + " ");
+				System.out.print(j + " ");
 			}
+			
+			System.out.println();
 		}
+		
+		System.out.println();
 		
 	}
 	
