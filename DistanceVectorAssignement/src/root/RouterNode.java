@@ -154,7 +154,7 @@ public class RouterNode {
 		distanceVectors.put(myID, infinitValuesArray);
 		
 		printCurrentDistanceVectors();
-		
+		// new vers
 		// update node's distance vector
 		updateNodeSDistanceVector();
 		
