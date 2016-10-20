@@ -1,5 +1,4 @@
 package root;
-
 import java.util.Random;
 
 /* ******************************************************************
@@ -19,7 +18,7 @@ public class RouterSimulator {
 	public static final int NUM_NODES = 3;
 	public static final int INFINITY = 999;
 	
-	public static final boolean LINKCHANGES = false; // = true;
+	public static final boolean LINKCHANGES = true;
 	
 	public int TRACE = 3; /* for debugging */
 	
@@ -56,8 +55,6 @@ public class RouterSimulator {
 	public static void main(String[] argv) {
 		RouterSimulator sim = new RouterSimulator();
 		
-
-		
 		sim.runSimulation();
 	}
 	
@@ -83,12 +80,12 @@ public class RouterSimulator {
 		
 		/* set initial costs */
 		// remember that in java everything defaults to 0
-		connectcosts[0][1] = 2;
-		connectcosts[0][2] = 7;
-		connectcosts[1][0] = 2;
-		connectcosts[1][2] = 1;
-		connectcosts[2][0] = 7;
-		connectcosts[2][1] = 1;
+		connectcosts[0][1] = 4;
+		connectcosts[0][2] = 1;
+		connectcosts[1][0] = 4;
+		connectcosts[1][2] = 50;
+		connectcosts[2][0] = 1;
+		connectcosts[2][1] = 50;
 		
 		nodes = new RouterNode[NUM_NODES];
 		for ( int i = 0; i < NUM_NODES; i++ )
@@ -152,9 +149,6 @@ public class RouterSimulator {
 		}
 		
 		myGUI.println("\nSimulator terminated at t=" + clocktime + ", no packets in medium\n");
-		
-
-		
 	}
 	
 	public double getClocktime() {

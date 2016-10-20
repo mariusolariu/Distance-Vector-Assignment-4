@@ -14,7 +14,9 @@ public class RouterNode {
 	// the distance vector of current node and it's neighbours is hold in this
 	// map // neighbo
 	HashMap<Integer, Integer[]> distanceVectors = new HashMap<>();
+	Integer[] infinitValuesArray = new Integer[RouterSimulator.NUM_NODES];
 	
+
 	// --------------------------------------------------
 	/**
 	 * @param ID
@@ -28,21 +30,27 @@ public class RouterNode {
 		
 		System.arraycopy(costs, 0, this.costs, 0, RouterSimulator.NUM_NODES);
 		
-		Integer[] initialDistanceArrayForNeighbours = new Integer[RouterSimulator.NUM_NODES];
+
 		for ( int i = 0; i < RouterSimulator.NUM_NODES; i++ ) {
-			initialDistanceArrayForNeighbours[i] = RouterSimulator.INFINITY;
+			infinitValuesArray[i] = RouterSimulator.INFINITY;
 		}
 		
 		// initializing distance vector of neighours and itself
 		for ( int i = 0; i < RouterSimulator.NUM_NODES; i++ ) {
 			
+			// we add the distance vector of current node in distanceVectors
 			if ( i == myID ) {
 				Integer[] costsToInteger = convertToInteger(costs);
 				distanceVectors.put(i, costsToInteger);
 				continue;
 			}
 			
-			distanceVectors.put(i, initialDistanceArrayForNeighbours);
+			// we check if node "i" is a neighbour
+			if ( costs[i] == sim.INFINITY ) {
+				continue;
+			}
+			
+			distanceVectors.put(i, infinitValuesArray);
 		}
 		
 		// send distanceVector to neighbours of the current node
@@ -51,28 +59,10 @@ public class RouterNode {
 	
 	// --------------------------------------------------
 	public void recvUpdate(RouterPacket pkt) {
-		Integer[] distanceVectorOfCurrentNode = distanceVectors.get(myID);
-		boolean modifiedCurrentDistanceVector = false;
-		
 		// add the distance vector of neighbour
 		distanceVectors.put(pkt.sourceid, convertToInteger(pkt.mincost));
 		
-		// update the distanceVector of current node if needed
-		for ( int i = 0; i < RouterSimulator.NUM_NODES; i++ ) {
-			
-			// Bellman-Ford Equation
-			if ( distanceVectorOfCurrentNode[i] > (costs[pkt.sourceid] + pkt.mincost[i]) ) {
-				distanceVectorOfCurrentNode[i] = costs[pkt.sourceid] + pkt.mincost[i];
-				modifiedCurrentDistanceVector = true;
-			}
-			
-		}
-		
-		// send the new distanceVector to neighbours if needed
-		if ( modifiedCurrentDistanceVector ) {
-			// distanceVectors.put(myID, distanceVectorOfCurrentNode);
-			notifyNeighbours();
-		}
+		updateNodeSDistanceVector();
 		
 	}
 	
@@ -84,16 +74,75 @@ public class RouterNode {
 	
 	// --------------------------------------------------
 	public void printDistanceTable() {
-		myGUI.println("Current table for " + myID + "  at time " + sim.getClocktime());
+		myGUI.println("\n\nCurrent state for router " + myID + " at time " + sim.getClocktime());
+		
+		myGUI.println("Distance table:");
+		myGUI.print(F.format(" Dst |", 10));
+		
+		for ( int i = 0; i < sim.NUM_NODES; i++ ) {
+			myGUI.print(F.format(i, 10));
+		}
+		
+		myGUI.println();
+		
+		for ( int i = 0; i <= (sim.NUM_NODES + 1) * 10; i++ ) {
+			myGUI.print("-");
+		}
+		
+		myGUI.println();
 		
 		for ( Entry<Integer, Integer[]> entry : distanceVectors.entrySet() ) {
-			myGUI.print(entry.getKey() + " :");
+			
+			if ( myID == entry.getKey() ) {
+				continue; // we don't want to print the distance vector of the
+				          // current node here
+			}
+			
+			myGUI.print(F.format(" nbr " + entry.getKey() + " |", 10));
 			
 			for ( Integer i : entry.getValue() ) {
-				myGUI.print(" " + i);
+				myGUI.print(F.format(i, 10));
 			}
 			
 			myGUI.println(" ");
+		}
+		
+		myGUI.println();
+		
+		myGUI.println("Our distance vector and routes:");
+		myGUI.print(F.format(" Dst |", 10));
+		
+		for ( int i = 0; i < sim.NUM_NODES; i++ ) {
+			myGUI.print(F.format(i, 10));
+		}
+		
+		myGUI.println();
+		
+		for ( int i = 0; i <= (sim.NUM_NODES + 1) * 10; i++ ) {
+			myGUI.print("-");
+		}
+		
+		myGUI.println();
+		
+		myGUI.print(F.format(" cost |", 10));
+		
+		Integer[] dvOfCurrentNode = distanceVectors.get(myID);
+		
+		for ( Integer i : dvOfCurrentNode ) {
+			myGUI.print(F.format(i, 10));
+		}
+		
+		myGUI.println();
+		
+		myGUI.print(F.format(" route |", 10));
+		
+		for ( int i = 0; i < sim.NUM_NODES; i++ ) {
+			
+			if ( dvOfCurrentNode[i] == sim.INFINITY ) {
+				myGUI.print(F.format("-", 10));
+			} else {
+				myGUI.print(F.format(i, 10));
+			}
 		}
 	}
 	
@@ -101,37 +150,51 @@ public class RouterNode {
 	public void updateLinkCost(int dest, int newcost) {
 		costs[dest] = newcost;
 		
-		// update node's distance vector if needed
+		// reinitialize the dv of current Node;
+		distanceVectors.put(myID, infinitValuesArray);
+		
+		// update node's distance vector
+		updateNodeSDistanceVector();
+		
+	}
+	
+	/**
+	 * 
+	 */
+	public void updateNodeSDistanceVector() {
 		Integer[] distanceVectorOfCurrentNode = distanceVectors.get(myID);
+		distanceVectorOfCurrentNode[myID] = 0;
+		
 		boolean modifiedCurrentDistanceVector = false;
 		
-
 		for ( int i = 0; i < RouterSimulator.NUM_NODES; i++ ) {
 			
-			// node "i" should be a neighbour (otherwise we won't modify
-				// distance vector of the current node)
-			if ( (i == myID) || (costs[i] != RouterSimulator.INFINITY) ) {
+			// skip this iteration, we already know that
+				// distanceVectOfCurrentNode==0
+			if ( (i == myID) ) {
+				// {
+				
 				continue;
 			}
 			
+			// if costs[i] == Infinity (then the dv won't be updated anyway)
 			Integer[] distanceVectorOfNeighbour = distanceVectors.get(i);
 			
 			for ( int j = 0; j < RouterSimulator.NUM_NODES; j++ ) {
 				
-				// for neighbours Bellman-Ford equation may be 0
+				// distance to get to current node is always 0
 				if ( j == myID ) {
 					continue;
 				}
 				
 				// Bellman-Ford Equation
-				if ( distanceVectorOfCurrentNode[i] > (costs[j] + distanceVectorOfNeighbour[i]) ) {
-					distanceVectorOfCurrentNode[i] = costs[j] + distanceVectorOfNeighbour[i];
+				if ( distanceVectorOfCurrentNode[j] > (costs[i] + distanceVectorOfNeighbour[j]) ) {
+					distanceVectorOfCurrentNode[j] = costs[i] + distanceVectorOfNeighbour[j];
 					modifiedCurrentDistanceVector = true;
 				}
 				
 			}
 			
-
 		}
 		
 		// send the new distanceVector to neighbours if needed
@@ -139,7 +202,6 @@ public class RouterNode {
 			// distanceVectors.put(myID, distanceVectorOfCurrentNode);
 			notifyNeighbours();
 		}
-		
 	}
 	
 	/**
