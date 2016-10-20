@@ -17,7 +17,6 @@ public class RouterNode {
 	HashMap<Integer, Integer[]> distanceVectors = new HashMap<>();
 	Integer[] infinitValuesArray = new Integer[RouterSimulator.NUM_NODES];
 	boolean flag = false;
-	
 
 	// --------------------------------------------------
 	/**
@@ -31,7 +30,6 @@ public class RouterNode {
 		myGUI = new GuiTextArea("  Output window for Router #" + ID + "  ");
 		
 		System.arraycopy(costs, 0, this.costs, 0, RouterSimulator.NUM_NODES);
-		
 
 		for ( int i = 0; i < RouterSimulator.NUM_NODES; i++ ) {
 			infinitValuesArray[i] = RouterSimulator.INFINITY;
@@ -161,14 +159,13 @@ public class RouterNode {
 		
 		distanceVectors.put(myID, convertToInteger(costs));
 
-		
-		printCurrentDistanceVectors();
+		// printCurrentDistanceVectors();
 		
 		// new vers
 		// update node's distance vector
 		updateNodeSDistanceVector();
 		
-		printCurrentDistanceVectors();
+		// printCurrentDistanceVectors();
 		
 		// flag = true;
 		
@@ -227,14 +224,15 @@ public class RouterNode {
 		
 		Integer[] distanceVectorOfCurrentNode = distanceVectors.get(myID);
 		distanceVectorOfCurrentNode[myID] = 0;
-		
-		
 
 		for ( int i = 0; i < RouterSimulator.NUM_NODES; i++ ) {
 			
-			// skip this iteration, we already know that
+			// skip this iteration if i is not a neighbour or we want to are
+			// going to set distanceVectorOfCurrentNode[myId], we already know
+			// that
 			// distanceVectOfCurrentNode[myID]==0
-			if ( (i == myID) ) {
+			//
+			if ( (i == myID) || (costs[i] == sim.INFINITY) ) {
 				// {
 				
 				continue;
@@ -249,13 +247,16 @@ public class RouterNode {
 				if ( j == myID ) {
 					continue;
 				}
-				
-				// Bellman-Ford Equation
-				if ( distanceVectorOfCurrentNode[j] > (costs[i] + distanceVectorOfNeighbour[j]) ) {
-					distanceVectorOfCurrentNode[j] = costs[i] + distanceVectorOfNeighbour[j];
-					
+				try {
+					// Bellman-Ford Equation
+					if ( distanceVectorOfCurrentNode[j] > (costs[i] + distanceVectorOfNeighbour[j]) ) {
+						distanceVectorOfCurrentNode[j] = costs[i] + distanceVectorOfNeighbour[j];
+						
+					}
+				} catch (NullPointerException e) {
+					e.printStackTrace();
 				}
-				
+
 			}
 			
 		}
