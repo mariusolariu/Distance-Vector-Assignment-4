@@ -1,5 +1,6 @@
 package root;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map.Entry;
 
@@ -15,6 +16,7 @@ public class RouterNode {
 	// map // neighbo
 	HashMap<Integer, Integer[]> distanceVectors = new HashMap<>();
 	Integer[] infinitValuesArray = new Integer[RouterSimulator.NUM_NODES];
+	boolean flag = false;
 	
 
 	// --------------------------------------------------
@@ -61,6 +63,10 @@ public class RouterNode {
 	public void recvUpdate(RouterPacket pkt) {
 		// add the distance vector of neighbour
 		distanceVectors.put(pkt.sourceid, convertToInteger(pkt.mincost));
+		
+		// if ( flag ) {
+		// reinitializeDistanceVectorOfCurrentNode();
+		// }
 		
 		updateNodeSDistanceVector();
 		
@@ -151,12 +157,32 @@ public class RouterNode {
 		costs[dest] = newcost;
 		
 		// reinitialize the dv of current Node;
-		distanceVectors.put(myID, infinitValuesArray);
+		// reinitializeDistanceVectorOfCurrentNode();
+		
+		distanceVectors.put(myID, convertToInteger(costs));
+
 		
 		printCurrentDistanceVectors();
+		
 		// new vers
 		// update node's distance vector
 		updateNodeSDistanceVector();
+		
+		printCurrentDistanceVectors();
+		
+		// flag = true;
+		
+	}
+	
+	/**
+	 * 
+	 */
+	private void reinitializeDistanceVectorOfCurrentNode() {
+		Integer[] dvOfCNode = distanceVectors.get(myID);
+		
+		for ( int i = 0; i < sim.NUM_NODES; i++ ) {
+			dvOfCNode[i] = sim.INFINITY;
+		}
 		
 	}
 	
@@ -188,15 +214,26 @@ public class RouterNode {
 	 * 
 	 */
 	public void updateNodeSDistanceVector() {
+		
+		Integer[] initialDistanceVectorOfCurrentNode = distanceVectors.get(myID);
+		
+		// we want another reference so that we can compare at the end of the
+		// method
+		// if the distance Vector of the current node was modified
+		initialDistanceVectorOfCurrentNode = initialDistanceVectorOfCurrentNode.clone();
+		
+		// at each step we recompute the dV based on information that we have
+		reinitializeDistanceVectorOfCurrentNode();
+		
 		Integer[] distanceVectorOfCurrentNode = distanceVectors.get(myID);
 		distanceVectorOfCurrentNode[myID] = 0;
 		
-		boolean modifiedCurrentDistanceVector = false;
 		
+
 		for ( int i = 0; i < RouterSimulator.NUM_NODES; i++ ) {
 			
 			// skip this iteration, we already know that
-				// distanceVectOfCurrentNode==0
+			// distanceVectOfCurrentNode[myID]==0
 			if ( (i == myID) ) {
 				// {
 				
@@ -216,7 +253,7 @@ public class RouterNode {
 				// Bellman-Ford Equation
 				if ( distanceVectorOfCurrentNode[j] > (costs[i] + distanceVectorOfNeighbour[j]) ) {
 					distanceVectorOfCurrentNode[j] = costs[i] + distanceVectorOfNeighbour[j];
-					modifiedCurrentDistanceVector = true;
+					
 				}
 				
 			}
@@ -224,7 +261,7 @@ public class RouterNode {
 		}
 		
 		// send the new distanceVector to neighbours if needed
-		if ( modifiedCurrentDistanceVector ) {
+		if ( !Arrays.equals(initialDistanceVectorOfCurrentNode, distanceVectorOfCurrentNode) ) {
 			// distanceVectors.put(myID, distanceVectorOfCurrentNode);
 			notifyNeighbours();
 		}
