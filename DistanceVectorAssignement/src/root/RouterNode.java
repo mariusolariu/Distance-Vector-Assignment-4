@@ -16,8 +16,10 @@ public class RouterNode {
 	// map // neighbo
 	HashMap<Integer, Integer[]> distanceVectors = new HashMap<>();
 	Integer[] infinitValuesArray = new Integer[RouterSimulator.NUM_NODES];
-	boolean flag = false;
-
+	int[] nextHopArray = new int[RouterSimulator.NUM_NODES];
+	
+	public boolean poisonReverse;
+	
 	// --------------------------------------------------
 	/**
 	 * @param ID
@@ -30,9 +32,12 @@ public class RouterNode {
 		myGUI = new GuiTextArea("  Output window for Router #" + ID + "  ");
 		
 		System.arraycopy(costs, 0, this.costs, 0, RouterSimulator.NUM_NODES);
-
+		
 		for ( int i = 0; i < RouterSimulator.NUM_NODES; i++ ) {
 			infinitValuesArray[i] = RouterSimulator.INFINITY;
+			
+			// initializing nextHopArray
+			nextHopArray[i] = i;
 		}
 		
 		// initializing distance vector of neighours and itself
@@ -78,7 +83,7 @@ public class RouterNode {
 	
 	// --------------------------------------------------
 	public void printDistanceTable() {
-		myGUI.println("\n\nCurrent state for router " + myID + " at time " + sim.getClocktime());
+		myGUI.println("\n\nCurrent state for router " + myID + " at time " + F.format(sim.getClocktime(), 7));
 		
 		myGUI.println("Distance table:");
 		myGUI.print(F.format(" Dst |", 10));
@@ -145,7 +150,7 @@ public class RouterNode {
 			if ( dvOfCurrentNode[i] == sim.INFINITY ) {
 				myGUI.print(F.format("-", 10));
 			} else {
-				myGUI.print(F.format(i, 10));
+				myGUI.print(F.format(nextHopArray[i], 10));
 			}
 		}
 	}
@@ -157,15 +162,15 @@ public class RouterNode {
 		// reinitialize the dv of current Node;
 		// reinitializeDistanceVectorOfCurrentNode();
 		
-		distanceVectors.put(myID, convertToInteger(costs));
-
-		// printCurrentDistanceVectors();
+		// distanceVectors.put(myID, convertToInteger(costs));
+		
+		// printCurrentDistanceVectors("before");
 		
 		// new vers
 		// update node's distance vector
 		updateNodeSDistanceVector();
 		
-		// printCurrentDistanceVectors();
+		// printCurrentDistanceVectors("after");
 		
 		// flag = true;
 		
@@ -186,10 +191,10 @@ public class RouterNode {
 	/**
 	 * 
 	 */
-	private void printCurrentDistanceVectors() {
+	private void printCurrentDistanceVectors(String time) {
 		Integer[] currentDistanceVector;
 		
-		System.out.println("Node " + myID + " distance vectors hm:");
+		System.out.println("Node " + myID + " distance vectors " + time + " update:");
 		
 		for ( int i = 0; i < sim.NUM_NODES; i++ ) {
 			System.out.print(i + " :");
@@ -219,12 +224,15 @@ public class RouterNode {
 		// if the distance Vector of the current node was modified
 		initialDistanceVectorOfCurrentNode = initialDistanceVectorOfCurrentNode.clone();
 		
+		int[] potentialNextHopArray = new int[RouterSimulator.NUM_NODES];
+		System.arraycopy(nextHopArray, 0, potentialNextHopArray, 0, RouterSimulator.NUM_NODES);
+		
 		// at each step we recompute the dV based on information that we have
 		reinitializeDistanceVectorOfCurrentNode();
 		
 		Integer[] distanceVectorOfCurrentNode = distanceVectors.get(myID);
 		distanceVectorOfCurrentNode[myID] = 0;
-
+		
 		for ( int i = 0; i < RouterSimulator.NUM_NODES; i++ ) {
 			
 			// skip this iteration if i is not a neighbour or we want to are
@@ -247,23 +255,26 @@ public class RouterNode {
 				if ( j == myID ) {
 					continue;
 				}
-				try {
-					// Bellman-Ford Equation
-					if ( distanceVectorOfCurrentNode[j] > (costs[i] + distanceVectorOfNeighbour[j]) ) {
-						distanceVectorOfCurrentNode[j] = costs[i] + distanceVectorOfNeighbour[j];
-						
-					}
-				} catch (NullPointerException e) {
-					e.printStackTrace();
+				
+				// Bellman-Ford Equation
+				if ( distanceVectorOfCurrentNode[j] > (costs[i] + distanceVectorOfNeighbour[j]) ) {
+					
+					distanceVectorOfCurrentNode[j] = costs[i] + distanceVectorOfNeighbour[j];
+					potentialNextHopArray[j] = i;
+					
 				}
-
+				
 			}
 			
 		}
 		
 		// send the new distanceVector to neighbours if needed
 		if ( !Arrays.equals(initialDistanceVectorOfCurrentNode, distanceVectorOfCurrentNode) ) {
-			// distanceVectors.put(myID, distanceVectorOfCurrentNode);
+			
+			// we have a new distance vector array for current node, thus a new
+			// nextHopArray
+			System.arraycopy(potentialNextHopArray, 0, nextHopArray, 0, RouterSimulator.NUM_NODES);
+			
 			notifyNeighbours();
 		}
 	}
@@ -274,20 +285,54 @@ public class RouterNode {
 	public void notifyNeighbours() {
 		
 		RouterPacket packetToBeSent = null;
-		int[] distanceVectorOfCurrentNode = convertToPrimitiveInt(distanceVectors.get(myID));
 		
 		// send distance vector of current node to it's neighbours
 		for ( int i = 0; i < RouterSimulator.NUM_NODES; i++ ) {
+			int[] distanceVectorOfCurrentNode = convertToPrimitiveInt(distanceVectors.get(myID));
 			
 			// checking if node i represent a neighbour of current node
 			if ( (i != myID) && (costs[i] != RouterSimulator.INFINITY) ) {
 				
-				packetToBeSent = new RouterPacket(myID, i, distanceVectorOfCurrentNode);
+				if ( poisonReverse ) {
+					
+					distanceVectorOfCurrentNode = getDistanceVectorPoisoned(i, distanceVectorOfCurrentNode);
+				}
 				
+				packetToBeSent = new RouterPacket(myID, i, distanceVectorOfCurrentNode);
 				sendUpdate(packetToBeSent);
+				
 			}
 		}
 		
+	}
+	
+	/**
+	 * @param i
+	 * @return
+	 */
+	private int[] getDistanceVectorPoisoned(int destinationNode, int[] distanceVectorOfCurrentNode) {
+		distanceVectorOfCurrentNode = distanceVectorOfCurrentNode.clone();
+		
+		for ( int i = 0; i < RouterSimulator.NUM_NODES; i++ ) {
+			
+			// if the current node routes through the destination of the packet
+			// to get to another node then we advertise that the distance is
+			// Infinity
+			if ( (nextHopArray[i] == destinationNode) && (i != destinationNode) && (i != myID) ) {
+				
+				distanceVectorOfCurrentNode[i] = RouterSimulator.INFINITY;
+			}
+		}
+		
+		// if ( (destinationNode == 1) && (myID == 2) ) {
+		// System.out.println("Distance vector send to 1");
+		// System.out.println(distanceVectorOfCurrentNode[0] + " " +
+		// distanceVectorOfCurrentNode[1] + " "
+		// + distanceVectorOfCurrentNode[2]);
+		//
+		// }
+		
+		return distanceVectorOfCurrentNode;
 	}
 	
 	/**
